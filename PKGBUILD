@@ -575,7 +575,7 @@ package_linux-pfio() {
 ### package_linux-pfio-headers
 package_linux-pfio-headers() {
   pkgdesc="Header files and scripts for building modules for linux-pfio kernel."
-  depends=('linux-pf') 
+  depends=('linux-pfio') 
   conflicts=( ${_conflicts[@]} )
   for _cpusuffix in $_CPUSUFFIXES ; do
     conflicts+=(linux-pfio-headers-$_cpusuffix)
