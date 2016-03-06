@@ -489,10 +489,10 @@ package_linux-pfio() {
 	pkgnameopt="${pkgname}"		# this MUST be inside this if-fi
 	pkgname="${pkgbase}"
 	echo pkgname $pkgname
-	cpuopt=`sed -e "s/linux-pf-//" <<<$pkgnameopt`		# get suffix
+	cpuopt=`sed -e "s/linux-pfio-//" <<<$pkgnameopt`		# get suffix
 	cpuoptdesc=`sed -e "s/${_pkgdesc}//" <<<$pkgdesc`	# get description
-	conflicts=(${conflicts[@]/linux-pf-${cpuopt}/})		# remove current
-	conflicts=(${conflicts[@]/linux-pf-headers-${cpuopt}/})	# remove current's headers
+	conflicts=(${conflicts[@]/linux-pfio-${cpuopt}/})		# remove current
+	conflicts=(${conflicts[@]/linux-pfio-headers-${cpuopt}/})	# remove current's headers
 	export cpuopt cpuoptdesc
   fi
 
