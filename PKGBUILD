@@ -1,7 +1,8 @@
-# Maintainer: Thaodan <theodorstormgrade@gmail.com>
-# Submitter: Christos Nouskas <nous at archlinux dot us>
-# PKGBUILD assembled from kernel26
-# Some lines from  kernel26-bfs and kernel26-ck
+# Maintainer: vifino <vifino@tty.sh>
+# Submitter: vifino <vifino@tty.sh>
+#
+# Mainly PKGBUILD of linux-pf from Thaodan, many thanks!
+# Applies patches from linux-vfio
 # Credits to respective maintainers
 _major=4
 _minor=4
@@ -9,11 +10,11 @@ _minor=4
 #_subversion=1
 _basekernel=${_major}.${_minor}
 _srcname=linux-${_major}.${_minor}
-pkgbase=linux-pf
+pkgbase=linux-pfio
 _pfrel=5
-_kernelname=-pf
+_kernelname=-pfio
 _pfpatchhome="http://pf.natalenko.name/sources/${_basekernel}/"
-_pfpatchname="patch-${_basekernel}${_kernelname}${_pfrel}"
+_pfpatchname="patch-${_basekernel}-pf${_pfrel}"
 _aufs3="https://github.com/sfjro/aufs4-standalone"
 _CPUSUFFIXES_KBUILD=(
   CORE2 K7 K8 K10 BARCELONA BOBCAT BULLDOZER PILEDRIVER PSC
@@ -69,12 +70,12 @@ _BATCH_MODE=n
 # Since 99.9% of users do not have multiple CPUs but do have multiple cores in one CPU
 # see, https://bugs.archlinux.org/task/31187
 
-pkgname=('linux-pf')
-true && pkgname=('linux-pf' 'linux-pf-headers')
+pkgname=('linux-pfio')
+true && pkgname=('linux-pfio' 'linux-pfio-headers')
 pkgver=${_basekernel}.${_pfrel}
 pkgrel=1
 arch=('i686' 'x86_64')
-url="http://pf.natalenko.name/"
+url="https://github.com/vifino/aur-linux-pfio"
 license=('GPL2')
 options=('!strip')
 makedepends=('git' 'xmlto' 'docbook-xsl' 'xz' 'bc' 'kmod')
@@ -85,9 +86,11 @@ source=("ftp://www.kernel.org/pub/linux/kernel/v${_major}.x/linux-${_basekernel}
 	"${_pfpatchhome}${_pfpatchname}.xz"	# the -pf patchset
         "git+$_aufs3#branch=aufs4.4"
 	'0001-sdhci-revert.patch'
-       '0001-4.4-revert-btrfs.patch'
-        '0001-4.4-revert-xfs.patch'
-       )
+	'0001-4.4-revert-btrfs.patch'
+	'0001-4.4-revert-xfs.patch'
+	'override_for_missing_acs_capabilities.patch' # acs override patch from -vfio
+	'i915_317.patch' # iGPU patch
+)
 # 	'cx23885_move_CI_AC_registration_to_a_separate_function.patch'     
 
 prepare() {
@@ -149,6 +152,15 @@ prepare() {
 
   # end linux-ARCH patches
 
+	# linux-vfio patches
+	msg "applying -vfio patches"
+  # iGPU patch
+  patch -Np1 -i "${srcdir}/i915_317.patch"
+  # Missing ACS cap patch
+  patch -Np1 -i "${srcdir}/override_for_missing_acs_capabilities.patch"
+
+  # end linux-vfio patches
+
 
   # added gcc 4.7.1 support for Kconfig and menuconfig
   # now inclued in pf patchset
@@ -160,12 +172,12 @@ prepare() {
 	cat "${startdir}/config.x86_64" >| .config
   else
 	cat "${startdir}/config" >| .config
-  fi
+fi
 
   sed -ri "s|SUBLEVEL = 0|SUBLEVEL = $_pfrel|" Makefile
 
 
-  # Set EXTRAVERSION to -pf
+  # Set EXTRAVERSION to -pfio
   sed -ri "s|^(EXTRAVERSION =).*|\1|" Makefile
   _arch=$CARCH
 
@@ -182,7 +194,7 @@ prepare() {
       -i -e '/CONFIG_NEED_MULTIPLE_NODES=y/d' \
       -i -e '/CONFIG_USE_PERCPU_NUMA_NODE_ID=y/d' \
       -i -e '/CONFIG_ACPI_NUMA=y/d' ./.config
-  fi
+   fi
 
   # Don't run depmod on 'make install'. We'll do this ourselves in packaging
   sed -i '2iexit 0' scripts/depmod.sh
@@ -251,7 +263,7 @@ build() {
           msg "Attempting to run /usr/bin/reload_database with sudo from modprobe_db..."
           if [ -e /usr/bin/modprobed_db ]; then
 	      sudo /usr/bin/modprobed_db recall
-          fi
+      fi
           msg "Running 'make localmodconfig'..."
           make localmodconfig
       else
@@ -308,9 +320,9 @@ build() {
           echo "=============================================================="
           msg "An non-generic CPU was selected for this kernel."
           echo
-          msg "Hit <G>     :  to create a generic package named linux-pf"
+          msg "Hit <G>     :  to create a generic package named linux-pfio"
           msg "Hit <ENTER> :  to create a package named after the selected CPU"
-          msg "               (linux-pf-${lcpu} - recommended default)"
+          msg "               (linux-pfio-${lcpu} - recommended default)"
           echo
           msg "This option affects ONLY the package name. Whether or not the"
           msg "kernel is optimized was determined at the previous config step."
@@ -321,8 +333,8 @@ build() {
           shopt -s nocasematch
           if [[ "$answer" != "g" ]]; then
 	      export _PKGOPT=y
-          fi
       fi
+    fi
       
   fi  # batch check ends here
   export CPU
@@ -343,8 +355,8 @@ build() {
   make ${MAKEFLAGS} LOCALVERSION= bzImage modules
 }
 
-package_linux-pf() {
- _pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ] and aufs3."
+package_linux-pfio() {
+ _pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ], -vfio patches and aufs3."
  pkgdesc=${_pkgdesc}
  groups=('base')
  backup=(etc/mkinitcpio.d/${pkgbase}.preset)
@@ -366,7 +378,7 @@ package_linux-pf() {
  for _cpusuffix in $_CPUSUFFIXES ; do
    conflicts+=(${pkgbase}-${_cpusuffix}) 
  done  
- replaces=('kernel26-pf' 'aufs3')
+ replaces=('aufs3')
  backup=("etc/mkinitcpio.d/${pkgbase}.preset")
  install='linux.install'
 
@@ -466,7 +478,7 @@ package_linux-pf() {
      default)
   # Note to me: DO NOT EVER REMOVE THIS. It's for the AUR PKGBUILD parser.
          pkgname="${pkgbase}"
-         pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ] and aufs3"
+         pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ], -vfio patches and aufs3"
          ;;
     esac
 
@@ -487,9 +499,9 @@ package_linux-pf() {
   # second batch check ends here
  fi
 
- # Pass conflicts array to linux-pf-headers() BEFORE adding generic linux-pf or headers will conflict
+ # Pass conflicts array to linux-pfio-headers() BEFORE adding generic linux-pfio or headers will conflict
  export _conflicts=${conflicts[@]}
- conflicts=('linux-pf' 'kernel26-pf' ${conflicts[@]})	# add generic packages
+ conflicts=('linux-pfio' ${conflicts[@]})	# add generic packages
 
   echo
   echo "    ========================================"
@@ -503,7 +515,7 @@ package_linux-pf() {
   echo "    ========================================"
   echo
 
- ### package_linux-pf
+ ### package_linux-pfio
 
   cd "${srcdir}/linux-${_basekernel}"
 
@@ -560,17 +572,17 @@ package_linux-pf() {
   true && pkgname="${pkgnameopt}"
 }
 
-### package_linux-pf-headers
-package_linux-pf-headers() {
-  pkgdesc="Header files and scripts for building modules for linux-pf kernel."
+### package_linux-pfio-headers
+package_linux-pfio-headers() {
+  pkgdesc="Header files and scripts for building modules for linux-pfio kernel."
   depends=('linux-pf') 
   conflicts=( ${_conflicts[@]} )
   for _cpusuffix in $_CPUSUFFIXES ; do
-    conflicts+=(linux-pf-headers-$_cpusuffix)
+    conflicts+=(linux-pfio-headers-$_cpusuffix)
   done
   [[ ${cpuopt} ]] && pkgname=${pkgname}-${cpuopt} && depends=${depends}-${cpuopt}
   [[ ${cpuoptdesc} ]] && pkgdesc=${pkgdesc}${cpuoptdesc}
-  provides=('linux-pf-headers')
+  provides=('linux-pfio-headers')
   cd "${srcdir}/linux-${_basekernel}"
 # c/p from linux-ARCH
 
@@ -703,7 +715,7 @@ package_linux-pf-headers() {
 }
 
 # Work around the AUR parser
-pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ] and aufs3"
+pkgdesc="Linux kernel and modules with the pf-kernel patch [-ck patchset (BFS included), TuxOnIce, BFQ], -vfio patches and aufs3"
 
 # makepkg -g >>PKGBUILD
 sha256sums=('401d7c8fef594999a460d10c72c5a94e9c2e1022f16795ec51746b0d165418b2'
@@ -715,4 +727,7 @@ sha256sums=('401d7c8fef594999a460d10c72c5a94e9c2e1022f16795ec51746b0d165418b2'
             'SKIP'
             '5313df7cb5b4d005422bd4cd0dae956b2dadba8f3db904275aaf99ac53894375'
             '51586b733e9f178bebe577258b6057b035eded516ffe8bf8bbb26cb0b26c4958'
-            'ffbfaa192d17bfc7c6293aa9a07efe57f65177051ae3d8033d5e45a7bca2e0ad')
+            'ffbfaa192d17bfc7c6293aa9a07efe57f65177051ae3d8033d5e45a7bca2e0ad'
+            '975f79348119bfba8dd972a9fbfe6b38484c45bfd228f2f6d48a0c02426ba149'
+            'b5a8eebbe75e1801b35d2f5197eba6f57123c224e09e97a7eb526f1fa58ac918')
+
